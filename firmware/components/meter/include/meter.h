@@ -59,3 +59,47 @@ typedef struct {
 
 esp_err_t meter_read_eem400(uart_port_t port, uint8_t unit, eem400_sample_t *out);
 void      meter_sim_eem400(uint32_t tick, eem400_sample_t *out);
+
+/* ------------------------------------------------------------------- DSE */
+/* Deep Sea Electronics generator controller (e.g. DSE7320 / DSE8610).
+ * Bus: 115200 baud, 8N2, FC03 (holding registers), slave configurable.
+ * Source: Deep-Sea-code.ino + datasheet (deep-sea-register-addredss.pdf).
+ *
+ * NOTE: Arduino register labels are wrong for many voltage channels
+ * (Mains↔Generator mixups, wrong phase numbers).  Register ADDRESSES are
+ * correct and proven.  Field names below follow the datasheet.
+ *
+ * All fields are engineering units:
+ *   Fuel      : %    (1 % resolution, raw = %)
+ *   Voltage   : V    (0.1 V resolution, raw × 0.1 = V)
+ *   Current   : —    (no current registers in Arduino code)
+ *   Frequency : Hz   (0.1 Hz resolution)
+ *   Power     : W    (1 W resolution, signed — generator can export/import)
+ *   PF        : —    (0.1 resolution, signed: –1.0 … +1.0)
+ *   Time      : s    (1 s resolution)                                      */
+typedef struct {
+    float fuel_pct;       /* Fuel level [%]              R1027, ×1         */
+    float batt_v;         /* Engine battery voltage [V]  R1029, ×0.1       */
+    float engine_rpm;     /* Engine speed [RPM]          R1030, ×1         */
+    float gen_freq_hz;    /* Generator frequency [Hz]    R1031, ×0.1       */
+    float gen_l1n_v;      /* Generator L1-N voltage [V]  R1032-33, ×0.1   */
+    float gen_l2n_v;      /* Generator L2-N voltage [V]  R1034-35, ×0.1   */
+    float gen_l3n_v;      /* Generator L3-N voltage [V]  R1036-37, ×0.1   */
+    float gen_l1l2_v;     /* Generator L1-L2 voltage [V] R1038-39, ×0.1   */
+    float gen_l2l3_v;     /* Generator L2-L3 voltage [V] R1040-41, ×0.1   */
+    float gen_l3l1_v;     /* Generator L3-L1 voltage [V] R1042-43, ×0.1   */
+    float mains_freq_hz;  /* Mains frequency [Hz]        R1059, ×0.1       */
+    float mains_l1n_v;    /* Mains L1-N voltage [V]      R1060-61, ×0.1   */
+    float mains_l2n_v;    /* Mains L2-N voltage [V]      R1062-63, ×0.1   */
+    float mains_l3n_v;    /* Mains L3-N voltage [V]      R1064-65, ×0.1   */
+    float mains_l1l2_v;   /* Mains L1-L2 voltage [V]     R1066-67, ×0.1   */
+    float mains_l2l3_v;   /* Mains L2-L3 voltage [V]     R1068-69, ×0.1   */
+    float mains_l3l1_v;   /* Mains L3-L1 voltage [V]     R1070-71, ×0.1   */
+    float gen_total_w;    /* Generator total watts [W]   R1536-37, signed  */
+    float gen_avg_pf;     /* Generator avg PF            R1557, ×0.1 signed*/
+    float gen_pct_power;  /* Generator % of full power   R1630, ×0.1 signed*/
+    float engine_run_s;   /* Engine run time [s]         R1798-99, ×1      */
+} dse_sample_t;
+
+esp_err_t meter_read_dse(uart_port_t port, uint8_t unit, dse_sample_t *out);
+void      meter_sim_dse(uint32_t tick, dse_sample_t *out);
