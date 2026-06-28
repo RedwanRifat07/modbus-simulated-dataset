@@ -8,16 +8,46 @@
 #include "esp_err.h"
 
 /* ----------------------------------------------------------------- MFM384 */
-/* Eastron SDM384 — 3-phase multifunction energy meter (style exemplar).
- * Registers: FC04 input regs, float32 CDAB (low-word first).               */
+/* Selec MFM384-C — 3-phase multifunction energy meter.
+ * Bus: 9600 baud, 8N1, FC04 (input registers), slave 1 (default).
+ * Source: MFM384_with_esp.ino + datasheet OP INST MFM384-C OP2042-V01.
+ *
+ * Data type: IEEE 754 float32, CDAB word order (low-word first).
+ * DS default is ABCD (Big Endian); the proven Arduino code uses CDAB
+ * (Mid Little Endian), meaning the meter config reg 40070 = 0 (CDAB).
+ *
+ * NOTE: I2 (reg 18) is present in the meter but NOT read by the Arduino
+ * reference — omitted here to stay faithful to the proven register set.
+ *
+ * CONFLICT LOG:
+ *   [C1] Arduino reg 42 labeled "kVAr Phase 3" — DS 30042 = "Total KW".
+ *        Arduino wins on address; DS wins on name. Field = total_kw.
+ *   [C2] Arduino reg 44 labeled "Total kW" — DS 30044 = "Total KVA".
+ *        Arduino wins on address; DS wins on name. Field = total_kva.  */
 typedef struct {
-    float v1, v2, v3;          /* Phase-N voltages [V]      */
-    float i1, i2, i3;          /* Phase currents [A]        */
-    float p1, p2, p3;          /* Active power per phase [kW] */
-    float total_kwh;           /* Import active energy [kWh]  */
-    float total_kvarh;         /* Import reactive energy [kvarh] */
-    float freq;                /* System frequency [Hz]      */
-    float avg_pf;              /* Average power factor       */
+    float v1n;        /* Phase-1–N voltage [V]              reg 0            */
+    float v2n;        /* Phase-2–N voltage [V]              reg 2            */
+    float v3n;        /* Phase-3–N voltage [V]              reg 4            */
+    float v_avg_ln;   /* Average line-to-neutral voltage [V] reg 6           */
+    float v12;        /* L1–L2 voltage [V]                  reg 8            */
+    float v23;        /* L2–L3 voltage [V]                  reg 10           */
+    float v31;        /* L3–L1 voltage [V]                  reg 12           */
+    float v_avg_ll;   /* Average line-to-line voltage [V]   reg 14           */
+    float i1;         /* Phase-1 current [A]                reg 16           */
+    float i3;         /* Phase-3 current [A]                reg 20 (I2 n/a) */
+    float i_avg;      /* Average current [A]                reg 22           */
+    float kw1;        /* Phase-1 active power [kW]          reg 24           */
+    float kw2;        /* Phase-2 active power [kW]          reg 26           */
+    float kw3;        /* Phase-3 active power [kW]          reg 28           */
+    float total_kw;   /* Total active power [kW]   DS:30042 reg 42  [C1]    */
+    float total_kva;  /* Total apparent power [kVA] DS:30044 reg 44 [C2]    */
+    float total_kvar; /* Total reactive power [kvar] DS:30046 reg 46        */
+    float pf1;        /* Power factor phase 1               reg 48           */
+    float pf2;        /* Power factor phase 2               reg 50           */
+    float pf3;        /* Power factor phase 3               reg 52           */
+    float avg_pf;     /* Average power factor               reg 54           */
+    float freq_hz;    /* System frequency [Hz]              reg 56           */
+    float total_kwh;  /* Total net active energy [kWh]      reg 58           */
 } mfm384_sample_t;
 
 esp_err_t meter_read_mfm384(uart_port_t port, uint8_t unit, mfm384_sample_t *out);
